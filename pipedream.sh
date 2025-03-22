@@ -5,6 +5,7 @@
 CARLA_PROJECT="./systemdsp.carxp"
 PROCESS_SINK="PipeDreamSink"
 VOLUME_STEP=1
+RESTORE_ON_CLOSE="yes"  # Set to "yes" to restore Carla when closed, "no" to shut down
 
 # Check if CARLA_PROJECT file exists
 if [ ! -f "$CARLA_PROJECT" ]; then
@@ -140,6 +141,20 @@ cleanup() {
     exit 0
 }
 
+restore_carla() {
+    echo "\nCarla has been closed. Attempting to restore..."
+    # Check if sink still exists, recreate if needed
+    if ! pactl list sinks short | grep -q "$PROCESS_SINK"; then
+        echo "Virtual sink missing, recreating..."
+        create_virtual_sink
+    fi
+    # Ensure sink is default
+    route_to_virtual_sink
+    # Restart Carla and reconnect
+    connect_carla_to_output
+    echo -ne "\r$(get_volume)"
+}
+
 echo "Starting audio processing setup..."
 trap cleanup INT TERM
 
@@ -160,8 +175,12 @@ echo -ne "\r$(get_volume)"
 while true; do
     # Check if Carla process is still running
     if ! ps -p "$CARLA_PID" > /dev/null; then
-        echo "\nCarla has been closed by the user."
-        cleanup
+        if [ "$RESTORE_ON_CLOSE" = "yes" ]; then
+            restore_carla
+        else
+            echo "\nCarla has been closed by the user."
+            cleanup
+        fi
     fi
 
     read -rsn1 -t 0.5 key
