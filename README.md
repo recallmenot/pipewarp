@@ -31,6 +31,7 @@ I'd advise agains killing PipeDream by closing the terminal window while it's ru
  * restart Carla
  * load your plugins
  * save the profile as `systemdsp.carxp`, in this repo's root dir
+ * close Carla
  * optionally make pipedream executable (it should already be): `chmod +x pipedream.sh`
  * run: `./pipedream.sh`
 
