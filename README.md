@@ -26,7 +26,11 @@ I'd advise agains killing PipeDream by closing the terminal window while it's ru
  * install xdotool if you're on X11 (a quick `echo $XDG_SESSION_TYPE` should tell you)
  * plugins can be installed to the usual locations where Carla can find them (e.g. `~/.vst3/`)
  * `git clone https://github.com/recallmenot/pipedream.git`
- * launch Carla, load your plugins and save the profile as `systemdsp.carxp`, in this repo's root dir
+ * launch Carla
+ * settings -> configure -> engine: audio driver JACK, process mode continuous rack
+ * restart Carla
+ * load your plugins
+ * save the profile as `systemdsp.carxp`, in this repo's root dir
  * optionally make pipedream executable (it should already be): `chmod +x pipedream.sh`
  * run: `./pipedream.sh`
 
