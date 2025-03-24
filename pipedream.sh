@@ -99,6 +99,16 @@ connect_carla_to_output() {
     pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1"
     echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
     pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2"
+
+    while true; do
+        if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_SINK:playback_FL" && \
+           pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_SINK:playback_FR"; then
+            echo "$ORIGINAL_DEVICE_SINK output ports detected."
+            break
+        fi
+        echo "$ORIGINAL_DEVICE_SINK output ports not yet available, checking again in 0.2s..."
+        sleep 0.2
+    done
     echo "Creating link: Carla:audio-out1 -> $ORIGINAL_DEVICE_SINK:playback_FL"
     pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL"
     echo "Creating link: Carla:audio-out2 -> $ORIGINAL_DEVICE_SINK:playback_FR"
