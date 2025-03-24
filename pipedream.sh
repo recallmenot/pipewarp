@@ -141,8 +141,28 @@ cleanup() {
     exit 0
 }
 
+wait_for_session() {
+    echo "Waiting for user session and PipeWire to be ready..."
+    while true; do
+        # Check if PipeWire is running and responsive
+        if pw-cli info 0 >/dev/null 2>&1; then
+            # Check if the original sink is available
+            if pactl list sinks short | grep -q "$ORIGINAL_DEVICE_SINK"; then
+                # For graphical session, check if DISPLAY is set (X11) or Wayland is active
+                if [ -n "$DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+                    echo "Session and PipeWire are ready."
+                    break
+                fi
+            fi
+        fi
+        echo "Session or PipeWire not yet ready, checking again in 1s..."
+        sleep 1
+    done
+}
+
 restore_carla() {
     echo "\nCarla has been closed. Attempting to restore..."
+    wait_for_session  # Wait until the session and PipeWire are ready
     # Check if sink still exists, recreate if needed
     if ! pactl list sinks short | grep -q "$PROCESS_SINK"; then
         echo "Virtual sink missing, recreating..."
