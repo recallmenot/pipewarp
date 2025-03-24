@@ -31,7 +31,27 @@ get_ORIGINAL_DEVICE_SINK() {
         echo "Error: Could not determine current output sink."
         exit 1
     fi
+
+    # Use pw-dump to find the node ID for the sink
+    NODE_ID=$(pw-dump | jq -r --arg sink "$ORIGINAL_DEVICE_SINK" \
+        '.[] | select(.type == "PipeWire:Interface:Node" and .info.props["node.name"] == $sink) | .id' 2>/dev/null)
+    if [ -z "$NODE_ID" ]; then
+        echo "Error: Could not find node ID for sink $ORIGINAL_DEVICE_SINK in PipeWire dump."
+        exit 1
+    fi
+
+    # Find the port alias for playback_FL associated with this node
+    ORIGINAL_DEVICE_PORT_ALIAS=$(pw-dump | jq -r --argjson node_id "$NODE_ID" \
+        '.[] | select(.type == "PipeWire:Interface:Port" and .info.props["node.id"] == $node_id and .info.props["port.name"] == "playback_FL") | .info.props["port.alias"]' 2>/dev/null)
+    if [ -z "$ORIGINAL_DEVICE_PORT_ALIAS" ]; then
+        echo "Error: Could not determine PipeWire port alias for $ORIGINAL_DEVICE_SINK:playback_FL."
+        echo "Ensure the device is connected and recognized by PipeWire."
+        exit 1
+    fi
+
     echo "Current output sink: $ORIGINAL_DEVICE_SINK"
+    echo "Node ID for the output sink: $NODE_ID"
+    echo "Port alias for playback_FL: $ORIGINAL_DEVICE_PORT_ALIAS"
 }
 
 check_existing_sink() {
@@ -69,10 +89,10 @@ connect_carla_to_output() {
         sleep 0.2
     done
 
-    # Minimize Carla if on X11 and xdotool is available
+    # Minimize Carla
     if [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null 2>&1; then
         echo "Detected X11, attempting to minimize Carla with xdotool..."
-        TIMEOUT=50  # 50 * 0.2s = 10s
+        TIMEOUT=50
         COUNT=0
         while [ $COUNT -lt $TIMEOUT ]; do
             if xdotool search --onlyvisible --name "Carla" windowminimize >/dev/null 2>&1; then
@@ -84,31 +104,31 @@ connect_carla_to_output() {
             COUNT=$((COUNT + 1))
         done
         if [ $COUNT -ge $TIMEOUT ]; then
-            echo "Timeout reached; failed to minimize Carla (main window not detected)."
+            echo "Timeout reached; failed to minimize Carla."
         fi
     elif [ "$XDG_SESSION_TYPE" = "x11" ]; then
-        echo "X11 detected, but xdotool is not installed. Carla will not be minimized."
-    elif [ "$XDG_SESSION_TYPE" = "wayland" ]; then
-        echo "Wayland detected. No universal minimization available; Carla will remain visible."
+        echo "X11 detected, but xdotool not installed."
     else
         echo "Session type ($XDG_SESSION_TYPE); Carla will not be minimized."
     fi
 
-    # Create links with pw-link
+    # Create links to virtual sink
     echo "Creating link: $PROCESS_SINK:monitor_FL -> Carla:audio-in1"
     pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1"
     echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
     pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2"
 
+    # Wait for the output device's playback_FL port alias
     while true; do
-        if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_SINK:playback_FL" && \
-           pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_SINK:playback_FR"; then
-            echo "$ORIGINAL_DEVICE_SINK output ports detected."
+        if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_PORT_ALIAS"; then
+            echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) detected."
             break
         fi
-        echo "$ORIGINAL_DEVICE_SINK output ports not yet available, checking again in 0.2s..."
+        echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) not yet available, checking again in 0.2s..."
         sleep 0.2
     done
+
+    # Create links to output device using the sink name
     echo "Creating link: Carla:audio-out1 -> $ORIGINAL_DEVICE_SINK:playback_FL"
     pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL"
     echo "Creating link: Carla:audio-out2 -> $ORIGINAL_DEVICE_SINK:playback_FR"
