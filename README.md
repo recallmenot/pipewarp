@@ -1,46 +1,46 @@
-# PipeDream
+# pipewarp
 
-PipeDream dynamically re-configures pipewire to send audio through Carla for processing in audio plugins (LADSPA, LV2, VST2 and VST3).
+Pipewarp dynamically re-configures pipewire to send audio through Carla for processing in audio plugins (LADSPA, LV2, VST2 and VST3).
 This enables a superior audio experience:
  * room correction
  * headphone correction
  * headphne room simulation
 
 ## architecture
-PipeDream creates an audio sink that becomes the default audio output device for all applications.
+Pipewarp creates an audio sink that becomes the default audio output device for all applications.
 The sink passes the audio to Carla, which processes it using the plugins you specify and then sends it to your previously-selected audio outputs.
 It expects that there is no running Carla instance so that it can launch it on its own.
 Carla is minimized at launch using xdotool if you're on X11, in wayland I'm not certain how to do that.
 
 ## volume control
-Since PipeDream relies on creating a sink, this sink will capture your system volume control.
+Since pipewarp relies on creating a sink, this sink will capture your system volume control.
 I recommend you leave this sink volume at 100% as this will make it losseless.
-PipeDream allows you to control the volume of the output device using the arrow keys.
+Pipewarp allows you to control the volume of the output device using the arrow keys.
 
 ## quitting
-PipeDream restores the pior audio output and volume when it is quit or Carla is closed.
-I'd advise agains killing PipeDream by closing the terminal window while it's running as it won't be able to restore the audio configuration this way.
+Pipewarp restores the pior audio output and volume when it is quit or Carla is closed.
+I'd advise agains killing pipewarp by closing the terminal window while it's running as it won't be able to restore the audio configuration this way.
 
 ## installation
  * install Carla from your package manager
  * install xdotool if you're on X11 (a quick `echo $XDG_SESSION_TYPE` should tell you)
  * plugins can be installed to the usual locations where Carla can find them (e.g. `~/.vst3/`)
- * `git clone https://github.com/recallmenot/pipedream.git`
+ * `git clone https://github.com/recallmenot/pipewarp.git`
  * launch Carla
  * settings -> configure -> engine: audio driver JACK, process mode continuous rack
  * restart Carla
  * load your plugins
  * save the profile as `systemdsp.carxp`, in this repo's root dir
  * close Carla
- * optionally make pipedream executable (it should already be): `chmod +x pipedream.sh`
- * run: `./pipedream.sh`
+ * optionally make pipewarp executable (it should already be): `chmod +x pipewarp.sh`
+ * run: `./pipewarp.sh`
 
 
 # Plugins
 ## room correction EQ
  * [MathAudio RoomEQ](https://mathaudio.com/room-eq.htm) 
  * Haven't tried Sonarworks in wine yet.
-Of cource you'll have to create the correction profile using Carla without PipeDream or in a DAW.
+Of cource you'll have to create the correction profile using Carla without pipewarp or in a DAW.
 
 ## (headphone) EQ
  * [ZLEquializer](https://github.com/ZL-Audio/ZLEqualizer)
