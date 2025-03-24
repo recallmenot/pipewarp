@@ -2,12 +2,24 @@
 
 # Script to automate audio processing with Carla and PipeWire
 
-CARLA_PROJECT="./systemdsp.carxp"
+CARLA_PROJECT_DEFAULT="./systemdsp.carxp"
 PROCESS_SINK="PipeDreamSink"
 VOLUME_STEP=1
 RESTORE_ON_CLOSE="yes"  # Set to "yes" to restore Carla when closed, "no" to shut down
 
-# Check if CARLA_PROJECT file exists
+# Parse command line options
+while getopts "p:" opt; do
+    case $opt in
+        p) CARLA_PROJECT="$OPTARG" ;;
+        ?) echo "Usage: $0 [-p <carla_project_file>]"
+           exit 1 ;;
+    esac
+done
+
+# If no project specified via -p, use default
+CARLA_PROJECT="${CARLA_PROJECT:-$CARLA_PROJECT_DEFAULT}"
+
+# Check if specified CARLA_PROJECT file exists
 if [ ! -f "$CARLA_PROJECT" ]; then
     echo "Error: Carla profile could not be found at: $CARLA_PROJECT"
     exit 1
@@ -206,6 +218,7 @@ restore_carla() {
 }
 
 echo "Starting audio processing setup..."
+echo "Loading Carla project: $CARLA_PROJECT"
 trap cleanup INT TERM
 
 get_ORIGINAL_DEVICE_SINK
