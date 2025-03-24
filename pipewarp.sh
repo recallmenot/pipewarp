@@ -3,7 +3,7 @@
 # Script to automate audio processing with Carla and PipeWire
 
 CARLA_PROJECT_DEFAULT="./systemdsp.carxp"
-PROCESS_SINK="PipeDreamSink"
+PROCESS_SINK="PipeWarpSink"
 VOLUME_STEP=1
 RESTORE_ON_CLOSE="yes"  # Set to "yes" to restore Carla when closed, "no" to shut down
 
