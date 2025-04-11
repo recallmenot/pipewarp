@@ -140,13 +140,15 @@ connect_carla_io() {
     echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
     pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" 2>/dev/null || true
 
+    local wait_time=0.0
     while true; do
         if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_PORT_ALIAS"; then
             echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) detected."
             break
         fi
-        echo "$ORIGINAL_DEVICE_SINK output port not yet available, checking again in 0.2s..."
+        printf "\r%s output port has not been available for %.1fs" "$ORIGINAL_DEVICE_SINK" "$wait_time"
         sleep 0.2
+        wait_time=$(echo "$wait_time + 0.2" | bc)
     done
 
     # Create links to output device using the sink name
