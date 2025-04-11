@@ -6,6 +6,7 @@ CARLA_PROJECT_DEFAULT="./systemdsp.carxp"
 PROCESS_SINK="PipeWarpSink"
 VOLUME_STEP=1
 RESTORE_ON_CLOSE="yes"  # Set to "yes" to restore Carla when closed, "no" to shut down
+CHECK_INTERVAL=5        # Seconds between connection checks
 
 # Parse command line options
 while getopts "p:" opt; do
@@ -66,6 +67,14 @@ get_ORIGINAL_DEVICE_SINK() {
     echo "Port alias for playback_FL: $ORIGINAL_DEVICE_PORT_ALIAS"
 }
 
+print_info() {
+    echo "Keyboard shortcuts:"
+    echo "q     - kill Carla and restore original routing"
+    echo "↑/↓   - adjust volume of $ORIGINAL_DEVICE_SINK (±$VOLUME_STEP%)"
+    echo "j/k   - adjust volume of $ORIGINAL_DEVICE_SINK (±$VOLUME_STEP%)"
+    echo -ne "\r$(get_volume)"
+}
+
 check_existing_sink() {
     if pactl list sinks short | grep -q "$PROCESS_SINK"; then
         echo "Error: Sink '$PROCESS_SINK' already exists and has been destroyed."
@@ -85,11 +94,10 @@ route_to_virtual_sink() {
     echo "Routing all audio to $PROCESS_SINK"
 }
 
-connect_carla_to_output() {
+start_carla() {
     carla "$CARLA_PROJECT" &
     CARLA_PID=$!
     echo "Waiting for Carla to initialize..."
-
     # Wait until Carla's audio ports are available
     while true; do
         if pw-cli ls Port | grep -q "Carla:audio-in1" && \
@@ -100,8 +108,9 @@ connect_carla_to_output() {
         echo "Carla I/O not yet available, checking again in 0.2s..."
         sleep 0.2
     done
+}
 
-    # Minimize Carla
+minimize_carla() {
     if [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null 2>&1; then
         echo "Detected X11, attempting to minimize Carla with xdotool..."
         TIMEOUT=50
@@ -111,7 +120,7 @@ connect_carla_to_output() {
                 echo "Carla minimized."
                 break
             fi
-            echo "Waiting for Carla main window to appear... ($((COUNT * 2 / 10))s elapsed)"
+            echo "Waiting for Carla main window... ($((COUNT * 2 / 10))s elapsed)"
             sleep 0.2
             COUNT=$((COUNT + 1))
         done
@@ -123,31 +132,50 @@ connect_carla_to_output() {
     else
         echo "Session type ($XDG_SESSION_TYPE); Carla will not be minimized."
     fi
+}
 
-    # Create links to virtual sink
+connect_carla_io() {
     echo "Creating link: $PROCESS_SINK:monitor_FL -> Carla:audio-in1"
-    pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1"
+    pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" 2>/dev/null || true
     echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
-    pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2"
+    pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" 2>/dev/null || true
 
-    # Wait for the output device's playback_FL port alias
     while true; do
         if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_PORT_ALIAS"; then
             echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) detected."
             break
         fi
-        echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) not yet available, checking again in 0.2s..."
+        echo "$ORIGINAL_DEVICE_SINK output port not yet available, checking again in 0.2s..."
         sleep 0.2
     done
 
     # Create links to output device using the sink name
     echo "Creating link: Carla:audio-out1 -> $ORIGINAL_DEVICE_SINK:playback_FL"
-    pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL"
+    pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" 2>/dev/null || true
     echo "Creating link: Carla:audio-out2 -> $ORIGINAL_DEVICE_SINK:playback_FR"
-    pw-link "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR"
+    pw-link "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" 2>/dev/null || true
 
-    echo "Audio routing attempted:"
-    pw-link -l | grep -E "($PROCESS_SINK|Carla|$ORIGINAL_DEVICE_SINK)" || echo "No links created"
+    echo "Audio routing status:"
+    pw-link -l | grep -E "($PROCESS_SINK|Carla|$ORIGINAL_DEVICE_SINK)" || echo "No links detected"
+}
+
+setup_carla_routing() {
+    start_carla
+    minimize_carla
+    connect_carla_io
+}
+
+check_connections() {
+    # Store the output of pw-link -l to parse it more reliably
+    LINKS=$(pw-link -l)
+    
+    # Check if both required output connections exist
+    if ! echo "$LINKS" | grep -A 1 "Carla:audio-out1" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FL" || \
+       ! echo "$LINKS" | grep -A 1 "Carla:audio-out2" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FR"; then
+        echo "\nCarla output connections lost, attempting to reconnect..."
+        connect_carla_io
+        print_info
+    fi
 }
 
 get_volume() {
@@ -186,15 +214,11 @@ cleanup() {
 wait_for_session() {
     echo "Waiting for user session and PipeWire to be ready..."
     while true; do
-        # Check if PipeWire is running and responsive
-        if pw-cli info 0 >/dev/null 2>&1; then
-            # Check if the original sink is available
-            if pactl list sinks short | grep -q "$ORIGINAL_DEVICE_SINK"; then
-                # For graphical session, check if DISPLAY is set (X11) or Wayland is active
-                if [ -n "$DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "wayland" ]; then
-                    echo "Session and PipeWire are ready."
-                    break
-                fi
+        if pw-cli info 0 >/dev/null 2>&1 && \
+           pactl list sinks short | grep -q "$ORIGINAL_DEVICE_SINK"; then
+            if [ -n "$DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+                echo "Session and PipeWire are ready."
+                break
             fi
         fi
         echo "Session or PipeWire not yet ready, checking again in 1s..."
@@ -204,16 +228,13 @@ wait_for_session() {
 
 restore_carla() {
     echo "\nCarla has been closed. Attempting to restore..."
-    wait_for_session  # Wait until the session and PipeWire are ready
-    # Check if sink still exists, recreate if needed
+    wait_for_session
     if ! pactl list sinks short | grep -q "$PROCESS_SINK"; then
         echo "Virtual sink missing, recreating..."
         create_virtual_sink
     fi
-    # Ensure sink is default
     route_to_virtual_sink
-    # Restart Carla and reconnect
-    connect_carla_to_output
+    setup_carla_routing
     echo -ne "\r$(get_volume)"
 }
 
@@ -227,16 +248,12 @@ ORIGINAL_VOLUME=$(get_volume)
 check_existing_sink
 create_virtual_sink
 route_to_virtual_sink
-connect_carla_to_output
+setup_carla_routing
 
-echo "Keyboard shortcuts:"
-echo "q     - kill Carla and restore original routing"
-echo "↑/↓   - adjust volume of $ORIGINAL_DEVICE_SINK (±$VOLUME_STEP%)"
-echo "j/k   - adjust volume of $ORIGINAL_DEVICE_SINK (±$VOLUME_STEP%)"
-echo -ne "\r$(get_volume)"
+print_info
 
+last_check=$(date +%s)
 while true; do
-    # Check if Carla process is still running
     if ! ps -p "$CARLA_PID" > /dev/null; then
         if [ "$RESTORE_ON_CLOSE" = "yes" ]; then
             restore_carla
@@ -244,6 +261,13 @@ while true; do
             echo "\nCarla has been closed by the user."
             cleanup
         fi
+    fi
+
+    # Periodic connection check
+    current_time=$(date +%s)
+    if [ $((current_time - last_check)) -ge $CHECK_INTERVAL ]; then
+        check_connections
+        last_check=$current_time
     fi
 
     read -rsn1 -t 0.5 key
