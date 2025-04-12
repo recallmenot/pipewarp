@@ -143,6 +143,9 @@ connect_carla_io() {
     local wait_time=0.0
     while true; do
         if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_PORT_ALIAS"; then
+            if [ $(echo "$wait_time != 0.0" | bc -l) -eq 1 ]; then
+                echo ""
+            fi
             echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) detected."
             break
         fi
