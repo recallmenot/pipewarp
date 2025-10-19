@@ -7,3 +7,7 @@ pw-cli ls Link | grep -E "(PipeDreamSink|Carla)"
 pw-cli info 118
 
 pw-top
+
+ldd carla
+ldd ~/.vst3/ZL\ Equalizer.vst3/Contents/x86_64-linux/ZL\ Equalizer.so
+ldd ~/.vst3/Airwindows\ Consolidated.vst3/Contents/x86_64-linux/Airwindows\ Consolidated.so

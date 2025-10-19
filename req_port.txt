@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+```
+#!/bin/bash
 
 # Script to automate audio processing with Carla and PipeWire
 
@@ -33,7 +34,7 @@ if ! command -v carla >/dev/null 2>&1; then
 fi
 
 # Check if Carla is already running
-if pgrep -f "/bin/carla" >/dev/null; then
+if pgrep -f "carla" >/dev/null; then
     echo "Warning: Carla is already running. This script will not proceed with an existing instance."
     exit 1
 fi
@@ -134,22 +135,11 @@ minimize_carla() {
     fi
 }
 
-# Helper to check if a specific link exists
-link_exists() {
-    local source="$1"
-    local target="$2"
-    pw-link -l 2>/dev/null | grep -q "$source" | grep -q "$target"
-}
-
 connect_carla_io() {
-    if ! link_exists "$PROCESS_SINK:monitor_FL" "Carla:audio-in1"; then
-        echo "Creating link: $PROCESS_SINK:monitor_FL -> Carla:audio-in1"
-        pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" 2>/dev/null || true
-    fi
-    if ! link_exists "$PROCESS_SINK:monitor_FR" "Carla:audio-in1"; then
-        echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
-        pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" 2>/dev/null || true
-    fi
+    echo "Creating link: $PROCESS_SINK:monitor_FL -> Carla:audio-in1"
+    pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" 2>/dev/null || true
+    echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
+    pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" 2>/dev/null || true
 
     local wait_time=0.0
     while true; do
@@ -165,18 +155,14 @@ connect_carla_io() {
         wait_time=$(echo "$wait_time + 0.2" | bc)
     done
 
-    # Create links to output device using the sink name if missing
-    if ! link_exists "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL"; then
-        echo "Creating link: Carla:audio-out1 -> $ORIGINAL_DEVICE_SINK:playback_FL"
-        pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" 2>/dev/null || true
-    fi
-    if ! link_exists "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR"; then
-        echo "Creating link: Carla:audio-out2 -> $ORIGINAL_DEVICE_SINK:playback_FR"
-        pw-link "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" 2>/dev/null || true
-    fi
+    # Create links to output device using the sink name
+    echo "Creating link: Carla:audio-out1 -> $ORIGINAL_DEVICE_SINK:playback_FL"
+    pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" 2>/dev/null || true
+    echo "Creating link: Carla:audio-out2 -> $ORIGINAL_DEVICE_SINK:playback_FR"
+    pw-link "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" 2>/dev/null || true
 
     echo "Audio routing status:"
-    pw-link -l 2>/dev/null | grep -E "($PROCESS_SINK|Carla|$ORIGINAL_DEVICE_SINK)" || echo "No links detected"
+    pw-link -l | grep -E "($PROCESS_SINK|Carla|$ORIGINAL_DEVICE_SINK)" || echo "No links detected"
 }
 
 setup_carla_routing() {
@@ -187,11 +173,11 @@ setup_carla_routing() {
 
 check_connections() {
     # Store the output of pw-link -l to parse it more reliably
-    LINKS=$(pw-link -l 2>/dev/null)
+    LINKS=$(pw-link -l)
     
     # Check if both required output connections exist
-    if ! echo "$LINKS" | grep -A 5 "Carla:audio-out1" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FL" || \
-       ! echo "$LINKS" | grep -A 5 "Carla:audio-out2" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FR"; then
+    if ! echo "$LINKS" | grep -A 1 "Carla:audio-out1" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FL" || \
+       ! echo "$LINKS" | grep -A 1 "Carla:audio-out2" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FR"; then
         echo "\nCarla output connections lost, attempting to reconnect..."
         connect_carla_io
         print_info
@@ -217,13 +203,13 @@ decrease_volume() {
 cleanup() {
     echo "Shutting down"
     echo "Disconnecting Carla"
-    pw-link -d "$(pw-link -l 2>/dev/null | grep "$PROCESS_SINK" | awk '{print $1}')" 2>/dev/null
-    pw-link -d "$(pw-link -l 2>/dev/null | grep "Carla" | awk '{print $1}')" 2>/dev/null
+    pw-link -d "$(pw-link -l | grep "$PROCESS_SINK" | awk '{print $1}')" 2>/dev/null
+    pw-link -d "$(pw-link -l | grep "Carla" | awk '{print $1}')" 2>/dev/null
     echo "Killing Carla"
     kill "$CARLA_PID" 2>/dev/null
     wait "$CARLA_PID" 2>/dev/null
     echo "Restoring output to $ORIGINAL_DEVICE_SINK"
-    pactl unload-module module-null-sink >/dev/null 2>&1
+    pactl unload-module module-null-sink
     pactl set-default-sink "$ORIGINAL_DEVICE_SINK"
     echo "Restoring output volume to $ORIGINAL_VOLUME"
     pactl set-sink-volume "$ORIGINAL_DEVICE_SINK" "$ORIGINAL_VOLUME"
@@ -305,5 +291,46 @@ while true; do
         esac
     fi
 done
+```
 
-# vim: set tabstop=4 shiftwidth=4 expandtab:
+Above is a script to route linux system audio through Carla for DSP.
+It targets the sound cards' playback_FL and playback_FR ports, which works fine for most devices, like this one:
+
+```
+pw-cli ls Port
+...
+	id 142, type PipeWire:Interface:Port/3
+ 		object.serial = "363"
+ 		object.path = "alsa:acp:Amplifier:1:playback:playback_0"
+ 		format.dsp = "32 bit float mono audio"
+ 		node.id = "58"
+ 		audio.channel = "FL"
+ 		port.id = "0"
+ 		port.name = "playback_FL"
+ 		port.direction = "in"
+ 		port.physical = "true"
+ 		port.terminal = "true"
+ 		port.alias = "M12i Mobile Headphone Amplifier:playback_FL"
+ 		port.group = "playback"
+	id 144, type PipeWire:Interface:Port/3
+ 		object.serial = "365"
+ 		object.path = "alsa:acp:Amplifier:1:playback:playback_1"
+ 		format.dsp = "32 bit float mono audio"
+ 		node.id = "58"
+ 		audio.channel = "FR"
+ 		port.id = "1"
+ 		port.name = "playback_FR"
+ 		port.direction = "in"
+ 		port.physical = "true"
+ 		port.terminal = "true"
+ 		port.alias = "M12i Mobile Headphone Amplifier:playback_FR"
+ 		port.group = "playback"
+```
+
+However, for some sound cards, there is no playback_FL and playback_FR, they instead have these:
+
+```
+pw-cli ls Port
+...
+
+

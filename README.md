@@ -35,6 +35,28 @@ I'd advise agains killing pipewarp by closing the terminal window while it's run
  * optionally make pipewarp executable (it should already be): `chmod +x pipewarp.sh`
  * run: `./pipewarp.sh`
 
+### nixos
+ * pipewarp relies on pipewire and pipewire-jack, so in configuration.nix:
+   ```
+     services.pipewire = {
+       enable = true;
+       alsa.enable = true;
+       alsa.support32Bit = true;
+       pulse.enable = true;
+       # If you want to use JACK applications, uncomment this
+       jack.enable = true;
+
+       # use the example session manager (no others are packaged yet so this is enabled by default,
+       # no need to redefine it in your config for now)
+       #media-session.enable = true;
+     };
+   ```
+   Then at least log out and back in again.
+ * The NixOS filesystem doesn't follow the Filesystem Hierarchy Standard and Carla won't even be able to locate VSTs in such an environment.
+   LDD only reveals Carla's immediate dependencies and the package doesn't care to provide any beyond those.
+   Solution: To start both carla and pipewarp from within an environment that provides the right libraries, start them from within the included flake with `nix run`.
+   You could also use musnix or `steam-run bash` for this.
+ * pipewarp needs `pactl` from `pulseaudio`, so add it to `environment.systemPackages = with pkgs; []` if you don't use the included flake. Your system will still use pipewire since that is what was enabled.
 
 # Plugins
 ## room correction EQ
