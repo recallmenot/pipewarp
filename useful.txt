@@ -1,8 +1,8 @@
 pw-cli ls Node
 pw-cli ls Port
-pw-cli ls Port | grep -E "(PipeDreamSink|Carla)"
+pw-cli ls Port | grep -E "(PipeWarpSink|Carla)"
 pw-cli ls Link
-pw-cli ls Link | grep -E "(PipeDreamSink|Carla)"
+pw-cli ls Link | grep -E "(PipeWarpSink|Carla)"
 
 pw-cli info 118
 

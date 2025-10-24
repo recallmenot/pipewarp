@@ -169,7 +169,7 @@ connect_carla_io() {
         echo "Creating link: $PROCESS_SINK:monitor_FL -> Carla:audio-in1"
         pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" 2>/dev/null || true
     fi
-    if ! link_exists "$PROCESS_SINK:monitor_FR" "Carla:audio-in1"; then
+    if ! link_exists "$PROCESS_SINK:monitor_FR" "Carla:audio-in2"; then
         echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
         pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" 2>/dev/null || true
     fi
