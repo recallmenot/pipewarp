@@ -138,7 +138,30 @@ minimize_carla() {
 link_exists() {
     local source="$1"
     local target="$2"
-    pw-link -l 2>/dev/null | grep -q "$source" | grep -q "$target"
+    local links
+    links=$(pw-link -l 2>/dev/null)
+    local node_connections=""
+    local in_block=0
+    while IFS= read -r line; do
+        if [[ -z "$line" ]]; then continue; fi
+        local first_char="${line:0:1}"
+        if [[ "$first_char" != " " ]]; then
+            if echo "$line" | grep -q "$source"; then
+                in_block=1
+            else
+                in_block=0
+            fi
+        else
+            if [ $in_block -eq 1 ]; then
+                node_connections+="$line"$'\n'
+            fi
+        fi
+    done <<< "$links"
+    if echo "$node_connections" | grep -q "$target"; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 connect_carla_io() {
