@@ -70,7 +70,7 @@ You can look up headphone frequnecy response graphs and even generate EQ profile
 Some of their partners offer the neutral Etymotic target for reference, sounds pretty neutral to me on in-ears.
 
 ## headphone room simulator
- * [Cans](https://www.airwindows.com/cans/) in [Airwindows Consolidated](https://github.com/baconpaul/airwin2rack/releases/tag/DAWPlugin): awesome on studio E, diffuse 0.07, damping 0.1, crossfeed 0.3, drywet 0.35
+ * [Cans](https://www.airwindows.com/cans/) in [Airwindows Consolidated](https://github.com/baconpaul/airwin2rack/releases/tag/DAWPlugin): awesome on studio C, diffuse 0.07, damping 0.1, crossfeed 0.31, drywet 0.35
  * [Valhalla Room](https://valhalladsp.com/shop/reverb/valhalla-room/) awesome on "Large Chamber" preset with 0.46s, drywet 14%, 3.2ms
 
 ## Windows VSTs
