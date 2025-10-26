@@ -118,6 +118,45 @@ await_carla_ports() {
     done
 }
 
+check_dependencies() {
+    local should_exit=0
+
+    echo "Checking dependencies..."
+
+    if ! command -v pw-cli >/dev/null 2>&1; then
+        echo "pw-cli not found. Are you certain you are using pipewire?"
+        should_exit=1
+    fi
+
+    if ! command -v pw-link >/dev/null 2>&1; then
+        echo "pw-link not found. Are you certain you are using pipewire?"
+        should_exit=1
+    fi
+
+    if ! command -v carla >/dev/null 2>&1; then
+        echo "Carla not found."
+        should_exit=1
+    fi
+
+    if ! command -v pactl >/dev/null 2>&1; then
+        echo "pactl not found. Install pulseaudio but don't enable it."
+        should_exit=1
+    fi
+
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "jq not found. Please install jq for JSON parsing."
+        should_exit=1
+    fi
+
+    if [ "$XDG_SESSION_TYPE" = "x11" ] && ! command -v xdotool >/dev/null 2>&1; then
+        echo "xdotool not found. Carla will not be minimized in X11 session."
+    fi
+
+    if [ $should_exit -eq 1 ]; then
+        exit 1
+    fi
+}
+
 start_carla() {
     carla "$CARLA_PROJECT" &
     CARLA_PID=$!
@@ -380,6 +419,8 @@ restore_carla() {
     setup_carla_routing
     echo -ne "\r$(get_volume)"
 }
+
+check_dependencies
 
 echo "Starting audio processing setup..."
 echo "Loading Carla project: $CARLA_PROJECT"
