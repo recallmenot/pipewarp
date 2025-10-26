@@ -78,3 +78,6 @@ To run the Windows VSTs, use [yabridge](https://github.com/robbert-vdh/yabridge)
 
 ## performance
 To tune your system for performance, use [rtcqs](https://github.com/autostatic/rtcqs) and follow [yabridge's performance tuning section](https://github.com/robbert-vdh/yabridge?tab=readme-ov-file#performance-tuning).
+
+# Troubleshooting
+In case you encounter issues, you can monitor the pipewire routing via qpwgraph.
