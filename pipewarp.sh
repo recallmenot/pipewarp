@@ -54,9 +54,9 @@ get_ORIGINAL_DEVICE_SINK() {
     fi
 
     # Find the port alias for playback_FL associated with this node
-    ORIGINAL_DEVICE_PORT_ALIAS=$(pw-dump | jq -r --argjson node_id "$NODE_ID" \
+    ORIGINAL_DEVICE_PORT_FL_ALIAS=$(pw-dump | jq -r --argjson node_id "$NODE_ID" \
         '.[] | select(.type == "PipeWire:Interface:Port" and .info.props["node.id"] == $node_id and .info.props["port.name"] == "playback_FL") | .info.props["port.alias"]' 2>/dev/null)
-    if [ -z "$ORIGINAL_DEVICE_PORT_ALIAS" ]; then
+    if [ -z "$ORIGINAL_DEVICE_PORT_FL_ALIAS" ]; then
         echo "Error: Could not determine PipeWire port alias for $ORIGINAL_DEVICE_SINK:playback_FL."
         echo "Ensure the device is connected and recognized by PipeWire."
         exit 1
@@ -64,7 +64,12 @@ get_ORIGINAL_DEVICE_SINK() {
 
     echo "Current output sink: $ORIGINAL_DEVICE_SINK"
     echo "Node ID for the output sink: $NODE_ID"
-    echo "Port alias for playback_FL: $ORIGINAL_DEVICE_PORT_ALIAS"
+    echo "Port alias for playback_FL: $ORIGINAL_DEVICE_PORT_FL_ALIAS"
+}
+
+print_audio_routing_status() {
+    echo "Audio routing status:"
+    pw-link -l 2>/dev/null | grep -E "($PROCESS_SINK|Carla|$ORIGINAL_DEVICE_SINK)" || echo "No links detected"
 }
 
 print_info() {
@@ -75,18 +80,8 @@ print_info() {
     echo -ne "\r$(get_volume)"
 }
 
-check_existing_sink() {
-    if pactl list sinks short | grep -q "$PROCESS_SINK"; then
-        echo "Error: Sink '$PROCESS_SINK' already exists and has been destroyed."
-        pactl unload-module module-null-sink
-        echo "Please check that the correct audio output device is selected and re-launch the script."
-        exit 1
-    fi
-}
-
 create_virtual_sink() {
     pactl load-module module-null-sink sink_name="$PROCESS_SINK" sink_properties="device.description='$PROCESS_SINK'"
-    sleep 1
 }
 
 route_to_virtual_sink() {
@@ -94,39 +89,52 @@ route_to_virtual_sink() {
     echo "Routing all audio to $PROCESS_SINK"
 }
 
-start_carla() {
-    carla "$CARLA_PROJECT" &
-    CARLA_PID=$!
-    echo "Waiting for Carla to initialize..."
-    # Wait until Carla's audio ports are available
+await_carla_node() {
+    local await_interval=0.2
+    echo "Awaiting Carla node availability..."
     while true; do
-        if pw-cli ls Port | grep -q "Carla:audio-in1" && \
-           pw-cli ls Port | grep -q "Carla:audio-out1"; then
-            echo "Carla I/O ports detected."
+        CARLA_NODE_ID=$(pw-dump | jq -r '.[] | select(.type == "PipeWire:Interface:Node" and .info.props["node.name"] == "Carla") | .id')
+        if [ -n "$CARLA_NODE_ID" ] && [ "$CARLA_NODE_ID" != "null" ]; then
+            echo "Carla node detected (ID: $CARLA_NODE_ID)"
             break
         fi
-        echo "Carla I/O not yet available, checking again in 0.2s..."
-        sleep 0.2
+        echo "Carla node not yet available, checking in $await_interval s..."
+        sleep "$await_interval"
     done
 }
 
+await_carla_ports() {
+    local await_interval=0.2
+    echo "Awaiting Carla IO ports availability..."
+    while true; do
+        if pw-cli ls Port | grep -q "Carla:audio-in1" && pw-cli ls Port | grep -q "Carla:audio-in2" \
+        && pw-cli ls Port | grep -q "Carla:audio-out1" && pw-cli ls Port | grep -q "Carla:audio-out2" \
+        ; then
+            echo "Carla I/O ports detected."
+            break
+        fi
+        echo "Carla IO not yet available, checking in $await_interval s..."
+        sleep "$await_interval"
+    done
+}
+
+start_carla() {
+    carla "$CARLA_PROJECT" &
+    CARLA_PID=$!
+}
+
 minimize_carla() {
+    local await_interval=0.2
     if [ "$XDG_SESSION_TYPE" = "x11" ] && command -v xdotool >/dev/null 2>&1; then
         echo "Detected X11, attempting to minimize Carla with xdotool..."
-        TIMEOUT=50
-        COUNT=0
-        while [ $COUNT -lt $TIMEOUT ]; do
+        while true; do
             if xdotool search --onlyvisible --name "Carla" windowminimize >/dev/null 2>&1; then
                 echo "Carla minimized."
                 break
             fi
-            echo "Waiting for Carla main window... ($((COUNT * 2 / 10))s elapsed)"
-            sleep 0.2
-            COUNT=$((COUNT + 1))
+            echo "Waiting for Carla main window to appear..."
+            sleep "$await_interval"
         done
-        if [ $COUNT -ge $TIMEOUT ]; then
-            echo "Timeout reached; failed to minimize Carla."
-        fi
     elif [ "$XDG_SESSION_TYPE" = "x11" ]; then
         echo "X11 detected, but xdotool not installed."
     else
@@ -164,61 +172,135 @@ link_exists() {
     fi
 }
 
-connect_carla_io() {
-    if ! link_exists "$PROCESS_SINK:monitor_FL" "Carla:audio-in1"; then
-        echo "Creating link: $PROCESS_SINK:monitor_FL -> Carla:audio-in1"
-        pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" 2>/dev/null || true
-    fi
-    if ! link_exists "$PROCESS_SINK:monitor_FR" "Carla:audio-in2"; then
-        echo "Creating link: $PROCESS_SINK:monitor_FR -> Carla:audio-in2"
-        pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" 2>/dev/null || true
-    fi
 
-    local wait_time=0.0
+disable_carla_autoconnect() {
+    pw-cli set-param "$CARLA_NODE_ID" Props '{ node.autoconnect = false, node.dont-reconnect = true }'
+    echo "Disabled Carla autoconnect."
+}
+
+connect_carla_inputs() {
+    pw-link "$PROCESS_SINK:monitor_FL" "Carla:audio-in1"
+    pw-link "$PROCESS_SINK:monitor_FR" "Carla:audio-in2"
+
+    # verify result
+    if ! link_exists "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" \
+    || ! link_exists "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" \
+    ; then
+        echo "failed to connect Carla inputs to $PROCESS_SINK"
+    else
+        echo "connected Carla inputs to $PROCESS_SINK"
+    fi
+}
+
+await_carla_feedback_loop() {
+    local await_interval=0.2
     while true; do
-        if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_PORT_ALIAS"; then
-            if [ $(echo "$wait_time != 0.0" | bc -l) -eq 1 ]; then
-                echo ""
-            fi
-            echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_ALIAS) detected."
+        echo "Awaiting Carla feedback loop to $PROCESS_SINK, checking in $await_interval..."
+        if link_exists "Carla:audio-out1" "$PROCESS_SINK:playback_FL" \
+        && link_exists "Carla:audio-out2" "$PROCESS_SINK:playback_FR" \
+        ; then
             break
         fi
-        printf "\r%s output port has not been available for %.1fs" "$ORIGINAL_DEVICE_SINK" "$wait_time"
-        sleep 0.2
-        wait_time=$(echo "$wait_time + 0.2" | bc)
+        sleep "$await_interval"
     done
+}
 
-    # Create links to output device using the sink name if missing
-    if ! link_exists "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL"; then
-        echo "Creating link: Carla:audio-out1 -> $ORIGINAL_DEVICE_SINK:playback_FL"
-        pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" 2>/dev/null || true
-    fi
-    if ! link_exists "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR"; then
-        echo "Creating link: Carla:audio-out2 -> $ORIGINAL_DEVICE_SINK:playback_FR"
-        pw-link "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" 2>/dev/null || true
-    fi
+connect_carla_outputs() {
+    pw-link "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" 2>/dev/null || true
+    pw-link "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" 2>/dev/null || true
 
-    echo "Audio routing status:"
-    pw-link -l 2>/dev/null | grep -E "($PROCESS_SINK|Carla|$ORIGINAL_DEVICE_SINK)" || echo "No links detected"
+    # verify result
+    if ! link_exists "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" \
+    || ! link_exists "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" \
+    ; then
+        echo "failed to connect Carla outputs to $ORIGINAL_DEVICE_SINK"
+    else
+        echo "connected Carla outputs to $ORIGINAL_DEVICE_SINK"
+    fi
+}
+
+disconnect_carla_feedback_loop() {
+    # Disconnect existing links
+    pw-link -d "Carla:audio-out1" "$PROCESS_SINK:playback_FL" 2>/dev/null || true
+    pw-link -d "Carla:audio-out2" "$PROCESS_SINK:playback_FR" 2>/dev/null || true
+
+    echo "Disconnected Carla from $PROCESS_SINK feedback links"
+
+    if link_exists "Carla:audio-out1" "$PROCESS_SINK:playback_FL" \
+    || link_exists "Carla:audio-out2" "$PROCESS_SINK:playback_FR" \
+    ; then
+        echo "Failed to disconnect Carla from $PROCESS_SINK. Beware! You may experience heavy feedback!"
+    fi
+}
+
+await_hardware_port() {
+    local await_interval=0.2
+    while true; do
+        if pw-cli ls Port | grep -q "$ORIGINAL_DEVICE_PORT_FL_ALIAS"; then
+            echo "$ORIGINAL_DEVICE_SINK output port ($ORIGINAL_DEVICE_PORT_FL_ALIAS) detected."
+            break
+        fi
+        echo "$ORIGINAL_DEVICE_SINK output port not yet detected, checking again in $await_interval"
+        sleep "$await_interval"
+    done
+}
+
+connect_carla_io() {
+    connect_carla_inputs
+    connect_carla_outputs
 }
 
 setup_carla_routing() {
     start_carla
+    await_carla_node
+    await_carla_ports
+    disable_carla_autoconnect
     minimize_carla
+    await_carla_feedback_loop
+    disconnect_carla_feedback_loop
     connect_carla_io
 }
 
 check_connections() {
-    # Store the output of pw-link -l to parse it more reliably
-    LINKS=$(pw-link -l 2>/dev/null)
-    
-    # Check if both required output connections exist
-    if ! echo "$LINKS" | grep -A 5 "Carla:audio-out1" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FL" || \
-       ! echo "$LINKS" | grep -A 5 "Carla:audio-out2" | grep -q "$ORIGINAL_DEVICE_SINK:playback_FR"; then
-        echo "\nCarla output connections lost, attempting to reconnect..."
+    local connections_altered=0
+
+    if ! check_carla_io_exists; then
+        echo "\nCarla IO lost, attempting to reconnect..."
         connect_carla_io
+        connections_altered=1
+    fi
+
+    if ! check_carla_no_feedback_loop; then
+        echo "\nCarla feedback loop detected, attempting to disconnect..."
+        disconnect_carla_feedback_loop
+        connections_altered=1
+    fi
+
+    if [ "$connections_altered" -eq 1 ]; then
+        print_audio_routing_status
         print_info
     fi
+}
+
+check_carla_io_exists() {
+    if ! link_exists "$PROCESS_SINK:monitor_FL" "Carla:audio-in1" \
+    || ! link_exists "$PROCESS_SINK:monitor_FR" "Carla:audio-in2" \
+    || ! link_exists "Carla:audio-out1" "$ORIGINAL_DEVICE_SINK:playback_FL" \
+    || ! link_exists "Carla:audio-out2" "$ORIGINAL_DEVICE_SINK:playback_FR" \
+    ; then
+        return 1
+    fi
+    return 0
+}
+
+
+check_carla_no_feedback_loop() {
+        if link_exists "Carla:audio-out1" "$PROCESS_SINK:playback_FL" \
+        || link_exists "Carla:audio-out2" "$PROCESS_SINK:playback_FR" \
+        ; then
+            return 1
+        fi
+        return 0
 }
 
 get_volume() {
@@ -255,6 +337,7 @@ cleanup() {
 }
 
 wait_for_session() {
+    local await_interval=0.2
     echo "Waiting for user session and PipeWire to be ready..."
     while true; do
         if pw-cli info 0 >/dev/null 2>&1 && \
@@ -264,15 +347,32 @@ wait_for_session() {
                 break
             fi
         fi
-        echo "Session or PipeWire not yet ready, checking again in 1s..."
-        sleep 1
+        echo "Session or PipeWire not yet ready, checking again in $await_interval s..."
+        sleep "$await_interval"
     done
+}
+
+check_virtual_sink() {
+    if ! pactl list sinks short | grep -q "$PROCESS_SINK"; then
+        return 1
+    fi
+    return 0
+}
+
+check_virtual_sink_startup() {
+    if pactl list sinks short | grep -q "$PROCESS_SINK"; then
+        echo "Error: Sink '$PROCESS_SINK' already exists and has been destroyed."
+        pactl unload-module module-null-sink
+        echo "Please check that the correct audio output device is selected and re-launch the script."
+        exit 1
+    fi
 }
 
 restore_carla() {
     echo "\nCarla has been closed. Attempting to restore..."
     wait_for_session
-    if ! pactl list sinks short | grep -q "$PROCESS_SINK"; then
+    await_hardware_port
+    if ! check_virtual_sink; then
         echo "Virtual sink missing, recreating..."
         create_virtual_sink
     fi
@@ -288,7 +388,8 @@ trap cleanup INT TERM
 get_ORIGINAL_DEVICE_SINK
 ORIGINAL_VOLUME=$(get_volume)
 
-check_existing_sink
+await_hardware_port
+check_virtual_sink_startup
 create_virtual_sink
 route_to_virtual_sink
 setup_carla_routing
