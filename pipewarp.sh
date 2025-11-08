@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+OLD_LC_ALL=$LC_ALL
+OLD_LANG=$LANG
+
+export LC_ALL=C
+export LANG=C
+
 # Script to automate audio processing with Carla and PipeWire
 
 CARLA_PROJECT_DEFAULT="./systemdsp.carxp"
@@ -371,6 +377,10 @@ cleanup() {
     pactl set-default-sink "$ORIGINAL_DEVICE_SINK"
     echo "Restoring output volume to $ORIGINAL_VOLUME"
     pactl set-sink-volume "$ORIGINAL_DEVICE_SINK" "$ORIGINAL_VOLUME"
+    echo "Restoring language."
+    export LC_ALL="$OLD_LC_ALL"
+    export LANG="$OLD_LANG"
+    unset OLD_LC_ALL OLD_LANG
     echo "Cleanup complete."
     exit 0
 }
