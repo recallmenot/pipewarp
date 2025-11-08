@@ -12,15 +12,6 @@ The sink passes the audio to Carla, which processes it using the plugins you spe
 It expects that there is no running Carla instance so that it can launch it on its own.
 Carla is minimized at launch using xdotool if you're on X11, in wayland I'm not certain how to do that.
 
-## volume control
-Since pipewarp relies on creating a sink, this sink will capture your system volume control.
-I recommend you leave this sink volume at 100% as this will make it losseless.
-Pipewarp allows you to control the volume of the output device using the arrow keys.
-
-## quitting
-Pipewarp restores the pior audio output and volume when it is quit or Carla is closed.
-I'd advise agains killing pipewarp by closing the terminal window while it's running as it won't be able to restore the audio configuration this way.
-
 ## installation
 
 ### linux
@@ -77,6 +68,19 @@ Options:
  a) use the included flake with `nix run`, then run as if on regular linux (see above)
  b) use musnix
  c) use steam-run `steam-run bash`
+
+## volume control
+Since pipewarp relies on creating a sink, this sink will capture your system volume control.
+I recommend you leave this sink volume at 100% as this will make it near-lossless.
+Pipewarp allows you to control the volume of the output device using the arrow keys.
+On most devices, this is hardware volume control, conserving your precious bit-depth, as opposed to reducing volume before sending it to the output device.
+
+## quitting
+Just press `q` in the terminal running pipewarp.
+Pipewarp restores the pior audio output and volume when it is quit or Carla is closed.
+I'd advise agains killing pipewarp by closing the terminal window while it's running as it won't be able to restore the audio configuration this way.
+
+
 
 # Plugins
 
