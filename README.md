@@ -65,9 +65,9 @@ Solution: To start both carla and pipewarp from within an environment that provi
 The same applies to profile creation.
 
 Options:
- a) use the included flake with `nix run`, then run as if on regular linux (see above)
- b) use musnix
- c) use steam-run `steam-run bash`
+ * use the included flake with `nix run`, then run as if on regular linux (see above)
+ * use musnix
+ * use steam-run `steam-run bash`
 
 ## volume control
 Since pipewarp relies on creating a sink, this sink will capture your system volume control.
