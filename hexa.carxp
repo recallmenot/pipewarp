@@ -46,6 +46,35 @@ L0lDb21wb25lbnQ+PC9WU1QzUGx1Z2luU3RhdGU+AA==
   </Data>
  </Plugin>
 
+ <!-- Airwindows Consolidated -->
+ <Plugin>
+  <Info>
+   <Type>LV2</Type>
+   <Name>Cans</Name>
+   <URI>https://airwindows.com//plugins/Airwindows_Consolidated</URI>
+  </Info>
+
+  <Data>
+   <Active>Yes</Active>
+   <ControlChannel>1</ControlChannel>
+   <Options>0x1</Options>
+
+   <CustomData>
+    <Type>http://kxstudio.sf.net/ns/carla/property</Type>
+    <Key>CarlaSkinIsCompacted</Key>
+    <Value>false</Value>
+   </CustomData>
+
+   <CustomData>
+    <Type>http://lv2plug.in/ns/ext/atom#String</Type>
+    <Key>https://airwindows.com//plugins/Airwindows_Consolidated:StateString</Key>
+    <Value>
+368.VMjLgbV....O+fWarAhckI2bo8la8HRLt.iHfTlai8FYo41Y8HRUTYTK3HxO9.BOgc2Xu41buwVZjEFckQFHyQmbkEVao41YVUlbyk1at0iH3TiLzHBHiUmbxUlazAkbuMVYyM2ax4TXsUVOhLTXtMmHfD1cv8EL8HBLtTSLv.CLvPiM2LCLvPSL0HBHgcGbeESOh.iKvXSN4jSN4jiL3PyMzPiL1LiHfD1cv8kL8HBLt.SN4jSN4jCN1TCN3jSMzjyLh.RX2A2WyziHv3xLw.CLv.CLvHyL3PSL3TCNh.RX2A2WzziHv3xLzjSN4jSN4PCLyjSMyTSMh.RX2A2W0ziHv3BLh.RX2A2W1ziHv3BLh.RX2A2W2ziHv3BLh.RX2A2W3ziHv3BLh.RX2A2W4ziHv3BLh.RZtwVY10iHv3RMvDSL3biLvTyLwPiMyXiLh.xa0QGakYWOh.iK0.SLwfyMx.SMyDCM1LiMxHxK9..
+    </Value>
+   </CustomData>
+  </Data>
+ </Plugin>
+
  <!-- ZL Equalizer -->
  <Plugin>
   <Info>
@@ -578,42 +607,53 @@ bGNnUVdZREVGY2dBPC9JQ29tcG9uZW50PjwvVlNUM1BsdWdpblN0YXRlPgA=
   </Data>
  </Plugin>
 
- <!-- Airwindows Consolidated -->
- <Plugin>
-  <Info>
-   <Type>LV2</Type>
-   <Name>Cans</Name>
-   <URI>https://airwindows.com//plugins/Airwindows_Consolidated</URI>
-  </Info>
-
-  <Data>
-   <Active>Yes</Active>
-   <ControlChannel>1</ControlChannel>
-   <Options>0x1</Options>
-
-   <CustomData>
-    <Type>http://kxstudio.sf.net/ns/carla/property</Type>
-    <Key>CarlaSkinIsCompacted</Key>
-    <Value>false</Value>
-   </CustomData>
-
-   <CustomData>
-    <Type>http://lv2plug.in/ns/ext/atom#String</Type>
-    <Key>https://airwindows.com//plugins/Airwindows_Consolidated:StateString</Key>
-    <Value>
-368.VMjLgbV....O+fWarAhckI2bo8la8HRLt.iHfTlai8FYo41Y8HRUTYTK3HxO9.BOgc2Xu41buwVZjEFckQFHyQmbkEVao41YVUlbyk1at0iH3TiLzHBHiUmbxUlazAkbuMVYyM2ax4TXsUVOhLTXtMmHfD1cv8EL8HBLtTSLv.CLvPiM2LCLvPSL0HBHgcGbeESOh.iKvXSN4jSN4jiL3PyMzPiL1LiHfD1cv8kL8HBLt.SN4jSN4jCN1TCN3jSMzjyLh.RX2A2WyziHv3xLw.CLv.CLvHyL3PSL3TCNh.RX2A2WzziHv3xLzjSN4jSN4PCLyjSMyTSMh.RX2A2W0ziHv3BLh.RX2A2W1ziHv3BLh.RX2A2W2ziHv3BLh.RX2A2W3ziHv3BLh.RX2A2W4ziHv3BLh.RZtwVY10iHv3RMvDSL3biLvTyLwPiMyXiLh.xa0QGakYWOh.iK0.SLwfyMx.SMyDCM1LiMxHxK9..
-    </Value>
-   </CustomData>
-  </Data>
- </Plugin>
-
  <ExternalPatchbay>
+  <Connection>
+   <Source>Firefox:output_FL-34458</Source>
+   <Target>PipeWarpSink:playback_FL</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FR-34459</Source>
+   <Target>PipeWarpSink:playback_FR</Target>
+  </Connection>
   <Connection>
    <Source>Strawberry:output_FL</Source>
    <Target>PipeWarpSink:playback_FL</Target>
   </Connection>
   <Connection>
    <Source>Strawberry:output_FR</Source>
+   <Target>PipeWarpSink:playback_FR</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FL-30064</Source>
+   <Target>PipeWarpSink:playback_FL</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FR-30065</Source>
+   <Target>PipeWarpSink:playback_FR</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FL-34473</Source>
+   <Target>PipeWarpSink:playback_FL</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FR-34474</Source>
+   <Target>PipeWarpSink:playback_FR</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FL-34478</Source>
+   <Target>PipeWarpSink:playback_FL</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FR-34479</Source>
+   <Target>PipeWarpSink:playback_FR</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FL-34563</Source>
+   <Target>PipeWarpSink:playback_FL</Target>
+  </Connection>
+  <Connection>
+   <Source>Firefox:output_FR-34564</Source>
    <Target>PipeWarpSink:playback_FR</Target>
   </Connection>
   <Connection>
