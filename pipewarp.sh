@@ -239,13 +239,23 @@ connect_carla_inputs() {
 
 await_carla_feedback_loop() {
     local await_interval=0.2
+    local max_tries=10
+    local try_count=0
+
     while true; do
-        echo "Awaiting Carla feedback loop to $PROCESS_SINK, checking in $await_interval..."
+        echo "Awaiting Carla feedback loop to $PROCESS_SINK, checking in $await_interval... attempt $((try_count + 1))/$max_tries"
         if link_exists "Carla:audio-out1" "$PROCESS_SINK:playback_FL" \
         && link_exists "Carla:audio-out2" "$PROCESS_SINK:playback_FR" \
         ; then
             break
         fi
+
+        try_count=$((try_count + 1))
+        if [ "$try_count" -ge "$max_tries" ]; then
+            echo "Awaited Carla feedback loop but it never appeared. Continuing."
+            break
+        fi
+
         sleep "$await_interval"
     done
 }
