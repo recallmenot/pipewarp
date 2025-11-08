@@ -22,18 +22,16 @@ Pipewarp restores the pior audio output and volume when it is quit or Carla is c
 I'd advise agains killing pipewarp by closing the terminal window while it's running as it won't be able to restore the audio configuration this way.
 
 ## installation
+
+### linux
  * install Carla from your package manager
  * install xdotool if you're on X11 (a quick `echo $XDG_SESSION_TYPE` should tell you)
  * plugins can be installed to the usual locations where Carla can find them (e.g. `~/.vst3/`)
  * `git clone https://github.com/recallmenot/pipewarp.git`
  * launch Carla
  * settings -> configure -> engine: audio driver JACK, process mode continuous rack
- * restart Carla
- * load your plugins
- * save the profile as `systemdsp.carxp`, in this repo's root dir
  * close Carla
- * optionally make pipewarp executable (it should already be): `chmod +x pipewarp.sh`
- * run: `./pipewarp.sh`
+ * optionally make pipewarp.sh executable (it should already be): `chmod +x pipewarp.sh`
 
 ### nixos
  * pipewarp relies on pipewire and pipewire-jack, so in configuration.nix:
@@ -52,13 +50,36 @@ I'd advise agains killing pipewarp by closing the terminal window while it's run
      };
    ```
    Then at least log out and back in again.
- * The NixOS filesystem doesn't follow the Filesystem Hierarchy Standard and Carla won't even be able to locate VSTs in such an environment.
-   LDD only reveals Carla's immediate dependencies and the package doesn't care to provide any beyond those.
-   Solution: To start both carla and pipewarp from within an environment that provides the right libraries, start them from within the included flake with `nix run`.
-   You could also use musnix or `steam-run bash` for this.
  * pipewarp needs `pactl` from `pulseaudio`, so add it to `environment.systemPackages = with pkgs; []` if you don't use the included flake. Your system will still use pipewire since that is what was enabled.
 
+## usage
+
+### profile creation
+ * run Carla
+ * load your plugins
+ * save the profile as `name.carxp`, in this repo's root dir
+ * close Carla
+
+### running
+
+#### linux
+ * run: `./pipewarp.sh -p name.carxp`. If you leave `-p name.carxp` away, `systemdsp.carxp` is loaded automatically. You can overwrite that file if you only use one output device.
+
+#### nixOS
+The NixOS filesystem doesn't follow the Filesystem Hierarchy Standard and Carla won't even be able to locate VSTs in such an environment.
+LDD only reveals Carla's immediate dependencies and the package doesn't care to provide any beyond those.
+
+Solution: To start both carla and pipewarp from within an environment that provides the right libraries, start them from within an environment that provides the dependencies of the plugins.
+
+The same applies to profile creation.
+
+Options:
+ a) use the included flake with `nix run`, then run as if on regular linux (see above)
+ b) use musnix
+ c) use steam-run `steam-run bash`
+
 # Plugins
+
 ## room correction EQ
  * [MathAudio RoomEQ](https://mathaudio.com/room-eq.htm) 
  * Haven't tried Sonarworks in wine yet.
